@@ -140,3 +140,4 @@ MEDIA_URL = '/media/'
 # Folder where files will be stored
 MEDIA_ROOT = 'media/'
 AUTH_USER_MODEL = 'users.User'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

@@ -128,3 +128,19 @@ class Review(models.Model):
 
     class Meta:
         unique_together = ('manuscript', 'reviewer')  # ❗ prevent duplicate assignment
+
+
+# 📄 manuscripts/models.py
+
+FINAL_DECISION_CHOICES = [
+    ('pending', 'Pending'),
+    ('accepted', 'Accepted'),
+    ('rejected', 'Rejected'),
+    ('revision', 'Revision Required'),
+]
+
+final_decision = models.CharField(
+    max_length=20,
+    choices=FINAL_DECISION_CHOICES,
+    default='pending'
+)

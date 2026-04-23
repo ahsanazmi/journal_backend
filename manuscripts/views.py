@@ -3,11 +3,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAdminUser  # ✅ ADD THIS
-
-from .models import Manuscript
+from .utils import assign_reviewer_automatically
+from .models import Manuscript, Review
+from .emails import send_acceptance_email
 from .serializers import ManuscriptSerializer
-
-
+from .emails import send_submission_email
+from .emails import send_review_submitted_email
+from .emails import send_final_decision_email
 class SubmitPaperView(APIView):
     def post(self, request):
         serializer = ManuscriptSerializer(
@@ -15,16 +17,34 @@ class SubmitPaperView(APIView):
             context={'request': request}
         )
 
+        # ✅ validate data
         if serializer.is_valid():
+
+            # 🔹 save manuscript
             manuscript = serializer.save()
 
+            # 🔹 AUTO ASSIGN REVIEWER
+            reviewer = assign_reviewer_automatically(manuscript)
+
+            # 🔹 GET MAIN AUTHOR EMAIL
+            author = manuscript.authors.filter(is_main_author=True).first()
+
+            # 🔹 SEND EMAIL TO AUTHOR
+            if author:
+                try:
+                    send_submission_email(manuscript, author.email)
+                except Exception as e:
+                    print("Email error:", e)  # avoid crash
+
+            # 🔹 RESPONSE
             return Response({
                 "message": "Submitted successfully",
-                "paper_id": str(manuscript.paper_id)
-            })
+                "paper_id": str(manuscript.paper_id),
+                "assigned_reviewer": reviewer.username if reviewer else None
+            }, status=status.HTTP_201_CREATED)
 
-        # 🔥 PRINT ERROR
-        print(serializer.errors)
+        # ❌ ERROR HANDLING
+        print("Serializer Errors:", serializer.errors)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -131,19 +151,116 @@ class ReviewerDashboardView(APIView):
     def get(self, request):
         user = request.user
 
-        # 🔹 check role
+        # 🔒 Only reviewer allowed
         if user.role != 'reviewer':
-            return Response(
-                {"error": "Only reviewers allowed"},
-                status=403
-            )
+            return Response({"error": "Only reviewers allowed"}, status=403)
 
-        # 🔹 get assigned reviews
+        # 🔹 get reviews assigned to this reviewer
         reviews = Review.objects.filter(reviewer=user)
 
-        # 🔹 get manuscripts
-        manuscripts = [r.manuscript for r in reviews]
+        response_data = []
 
-        data = ManuscriptSerializer(manuscripts, many=True).data
+        for review in reviews:
+            manuscript = review.manuscript
 
-        return Response(data)
+            response_data.append({
+                "review_id": review.id,
+                "paper_id": manuscript.paper_id,
+                "title": manuscript.title,
+                "status": manuscript.status,
+                "review_status": review.decision
+            })
+
+        return Response(response_data)
+
+class SubmitReviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, review_id):
+        user = request.user
+
+        try:
+            review = Review.objects.get(id=review_id, reviewer=user)
+
+            decision = request.data.get("decision")
+            comments = request.data.get("comments")
+
+            if decision not in ['accepted', 'rejected']:
+                return Response({"error": "Invalid decision"}, status=400)
+
+            review.decision = decision
+            review.comments = comments
+            send_review_submitted_email(review.manuscript)
+
+            return Response({"message": "Review submitted"})
+
+        except Review.DoesNotExist:
+            return Response({"error": "Review not found"}, status=404)
+class FinalDecisionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, manuscript_id):
+        user = request.user
+
+        if user.role != 'editor':
+            return Response({"error": "Only editor allowed"}, status=403)
+
+        try:
+            manuscript = Manuscript.objects.get(id=manuscript_id)
+
+            decision = request.data.get("decision")
+
+            if decision not in ['accepted', 'rejected', 'revision']:
+                return Response({"error": "Invalid decision"}, status=400)
+
+            # 🔥 SAVE DECISION
+            manuscript.final_decision = decision
+            manuscript.status = decision
+            manuscript.save()
+
+            # ✅ ADD EMAIL LOGIC HERE 👇
+            author = manuscript.authors.filter(is_main_author=True).first()
+
+            if author and decision == "accepted":
+                send_acceptance_email(manuscript, author.email)
+
+            return Response({
+                "message": "Final decision applied",
+                "decision": decision
+            })
+
+        except Manuscript.DoesNotExist:
+            return Response({"error": "Manuscript not found"}, status=404)
+class EditorDashboardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        if user.role != 'editor':
+            return Response({"error": "Only editor allowed"}, status=403)
+
+        manuscripts = Manuscript.objects.all().order_by('-created_at')
+
+        response_data = []
+
+        for manuscript in manuscripts:
+            reviews = manuscript.reviews.all()
+
+            review_data = []
+            for r in reviews:
+                review_data.append({
+                    "reviewer": r.reviewer.username,
+                    "decision": r.decision,
+                    "comments": r.comments
+                })
+
+            response_data.append({
+                "paper_id": manuscript.paper_id,
+                "title": manuscript.title,
+                "status": manuscript.status,
+                "final_decision": manuscript.final_decision,
+                "reviews": review_data
+            })
+
+        return Response(response_data)
