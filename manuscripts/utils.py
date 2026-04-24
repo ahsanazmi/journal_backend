@@ -1,15 +1,17 @@
+# 📄 manuscripts/utils.py
+
 from django.db.models import Count, Q
 from users.models import User
 from .models import Review
+from .emails import send_reviewer_assignment_email   # ✅ import
 
-from .emails import send_reviewer_assignment_email
+
 def assign_reviewer_automatically(manuscript):
     reviewers = User.objects.filter(role='reviewer')
 
     if not reviewers.exists():
         return None
 
-    # 🔥 count only ACTIVE reviews (pending)
     reviewers = reviewers.annotate(
         active_reviews=Count(
             'assigned_reviews',
@@ -20,9 +22,14 @@ def assign_reviewer_automatically(manuscript):
     reviewer = reviewers.first()
 
     review = Review.objects.create(
-    manuscript=manuscript,
-    reviewer=reviewer
-)
+        manuscript=manuscript,
+        reviewer=reviewer
+    )
 
-# send email
-send_reviewer_assignment_email(manuscript, reviewer.email)
+    # ✅ NOW INSIDE FUNCTION
+    try:
+        send_reviewer_assignment_email(manuscript, reviewer.email)
+    except Exception as e:
+        print("Email error:", e)
+
+    return reviewer

@@ -81,3 +81,10 @@ Editorial Team
         from_email="your_email@gmail.com",
         recipient_list=[author_email],
     )
+def send_acceptance_email(manuscript, author_email):
+    send_mail(
+        subject="Paper Accepted",
+        message=f"Your paper {manuscript.paper_id} is accepted",
+        from_email="your_email@gmail.com",
+        recipient_list=[author_email],
+    )
