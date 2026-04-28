@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 from backend.config import Config
 from datetime import timedelta
+from dotenv import load_dotenv
+import os
 
 from pathlib import Path
 
@@ -142,4 +144,13 @@ MEDIA_URL = '/media/'
 # Folder where files will be stored
 MEDIA_ROOT = 'media/'
 AUTH_USER_MODEL = 'users.User'
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+load_dotenv()
+
+EMAIL_HOST_USER = os.getenv("EMAIL_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_PASS")
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
