@@ -22,36 +22,17 @@ class ManuscriptSerializer(serializers.ModelSerializer):
     class Meta:
         model = Manuscript
         fields = '__all__'
+        read_only_fields = ('paper_id',)
 
     def create(self, validated_data):
         request = self.context.get('request')
+        authors_data = request.data.get('authors') if request else None
 
-        # 🔹 get authors from request directly
-        authors_data = request.data.get('authors')
-
-        # 🔹 convert string → python list
         if isinstance(authors_data, str):
-            try:
-                authors_data = json.loads(authors_data)
-            except json.JSONDecodeError:
-                authors_data = None
-            
-        # 🔹 fallback for direct FormData fields from frontend
-        if not authors_data and request.data.get('authorName'):
-            authors_data = [{
-                'name': request.data.get('authorName'),
-                'email': request.data.get('emailAddress'),
-                'mobile': request.data.get('mobileNumber'),
-                'is_main_author': True
-            }]
+            authors_data = json.loads(authors_data)
 
-        # 🔹 remove authors if accidentally present
-        validated_data.pop('authors', None)
-
-        # 🔹 create manuscript
         manuscript = Manuscript.objects.create(**validated_data)
 
-        # 🔹 create authors
         if authors_data:
             for author in authors_data:
                 Author.objects.create(
@@ -59,7 +40,7 @@ class ManuscriptSerializer(serializers.ModelSerializer):
                     name=author.get('name'),
                     email=author.get('email'),
                     mobile=author.get('mobile'),
-                    is_main_author=author.get('is_main_author', False)
+                    is_main_author=author.get('is_main_author', False),
                 )
 
         return manuscript

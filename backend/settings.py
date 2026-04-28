@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 from backend.config import Config
 from datetime import timedelta
+from dotenv import load_dotenv
 import os
 
 from pathlib import Path
@@ -152,4 +153,10 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+load_dotenv()
+
+EMAIL_HOST_USER = os.getenv("EMAIL_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_PASS")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
