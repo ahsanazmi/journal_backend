@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-from django.core.mail import send_mail, EmailMultiAlternatives
-=======
-from django.core.mail import EmailMessage, send_mail
->>>>>>> 8452b3e812c3544af297bce7f06af00e0f563d80
+from django.core.mail import send_mail, EmailMultiAlternatives, EmailMessage
 from django.conf import settings
 
 

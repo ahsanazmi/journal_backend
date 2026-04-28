@@ -3,6 +3,7 @@
 from django.contrib import admin
 from django.db import transaction
 from django.utils.html import format_html, escape
+from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.db.models import Q, Count
 from .models import Manuscript, Review, Author
@@ -180,7 +181,7 @@ class ManuscriptAdmin(admin.ModelAdmin):
                 'text-decoration: none; font-weight: bold;">📥 Download Manuscript</a>',
                 obj.file.url
             )
-        return format_html('<span style="color: #999;">No file uploaded</span>')
+        return mark_safe('<span style="color: #999;">No file uploaded</span>')
     file_download.short_description = "📎 Manuscript File"
 
     def review_summary(self, obj):
@@ -211,7 +212,7 @@ class ManuscriptAdmin(admin.ModelAdmin):
             html += '</tr>'
         
         html += '</table>'
-        return format_html("{}", html)
+        return mark_safe(html)
     review_summary.short_description = "Review Details"
 
     def send_acceptance_emails(self, request, queryset):
